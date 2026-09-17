@@ -18,7 +18,7 @@ app.use(
   morgan(':method :url :status :res[content-length] - :response-time ms :body')
 )
 
-// Exercise 3.13: Fetch all persons from MongoDB
+// Fetch all persons from MongoDB
 app.get('/api/persons', (req, res, next) => {
   Person.find({})
     .then(persons => {
@@ -27,7 +27,7 @@ app.get('/api/persons', (req, res, next) => {
     .catch(error => next(error))
 })
 
-// Exercise 3.18: Info route using database count
+// Info route using database count
 app.get('/info', (req, res, next) => {
   Person.countDocuments({})
     .then(count => {
@@ -40,7 +40,7 @@ app.get('/info', (req, res, next) => {
     .catch(error => next(error))
 })
 
-// Exercise 3.18: Fetch single person from MongoDB
+// Fetch single person from MongoDB
 app.get('/api/persons/:id', (req, res, next) => {
   Person.findById(req.params.id)
     .then(person => {
@@ -53,7 +53,7 @@ app.get('/api/persons/:id', (req, res, next) => {
     .catch(error => next(error))
 })
 
-// Exercise 3.15: Delete person from MongoDB
+// Delete person from MongoDB
 app.delete('/api/persons/:id', (req, res, next) => {
   Person.findByIdAndDelete(req.params.id)
     .then(() => {
@@ -62,7 +62,7 @@ app.delete('/api/persons/:id', (req, res, next) => {
     .catch(error => next(error))
 })
 
-// Exercise 3.14: Add new person to MongoDB
+// Add new person to MongoDB
 app.post('/api/persons', (req, res, next) => {
   const body = req.body
 
@@ -82,7 +82,7 @@ app.post('/api/persons', (req, res, next) => {
     .catch(error => next(error))
 })
 
-// Exercise 3.17: Update person number with PUT
+// Update person with PUT
 app.put('/api/persons/:id', (req, res, next) => {
   const { name, number } = req.body
 
@@ -102,13 +102,13 @@ app.put('/api/persons/:id', (req, res, next) => {
     .catch(error => next(error))
 })
 
-// Fallback for non-existent routes
+// Unknown endpoint fallback
 const unknownEndpoint = (req, res) => {
   res.status(404).send({ error: 'unknown endpoint' })
 }
 app.use(unknownEndpoint)
 
-// Exercise 3.16: Centralized error handling middleware
+// Centralized error handler
 const errorHandler = (error, req, res, next) => {
   console.error(error.message)
 
