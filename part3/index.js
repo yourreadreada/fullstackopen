@@ -1,6 +1,8 @@
+require('dotenv').config()
 const express = require('express')
 const morgan = require('morgan')
 const cors = require('cors')
+const Person = require('./models/person')
 
 const app = express()
 
@@ -16,94 +18,107 @@ app.use(
   morgan(':method :url :status :res[content-length] - :response-time ms :body')
 )
 
-let persons = [
-  { 
-    id: '1',
-    name: 'Arto Hellas', 
-    number: '040-123456'
-  },
-  { 
-    id: '2',
-    name: 'Ada Lovelace', 
-    number: '39-44-5323523'
-  },
-  { 
-    id: '3',
-    name: 'Dan Abramov', 
-    number: '12-43-234345'
-  },
-  { 
-    id: '4',
-    name: 'Mary Poppendieck', 
-    number: '39-23-6423122'
-  }
-]
-
-app.get('/api/persons', (req, res) => {
-  res.json(persons)
+// Exercise 3.13: Fetch all persons from MongoDB
+app.get('/api/persons', (req, res, next) => {
+  Person.find({})
+    .then(persons => {
+      res.json(persons)
+    })
+    .catch(error => next(error))
 })
 
-app.get('/info', (req, res) => {
-  const count = persons.length
-  const currentTime = new Date()
-  res.send(`
-    <p>Phonebook has info for ${count} people</p>
-    <p>${currentTime}</p>
-  `)
+// Exercise 3.18: Info route using database count
+app.get('/info', (req, res, next) => {
+  Person.countDocuments({})
+    .then(count => {
+      const currentTime = new Date()
+      res.send(`
+        <p>Phonebook has info for ${count} people</p>
+        <p>${currentTime}</p>
+      `)
+    })
+    .catch(error => next(error))
 })
 
-app.get('/api/persons/:id', (req, res) => {
-  const id = req.params.id
-  const person = persons.find(p => p.id === id)
-
-  if (person) {
-    res.json(person)
-  } else {
-    res.status(404).end()
-  }
+// Exercise 3.18: Fetch single person from MongoDB
+app.get('/api/persons/:id', (req, res, next) => {
+  Person.findById(req.params.id)
+    .then(person => {
+      if (person) {
+        res.json(person)
+      } else {
+        res.status(404).end()
+      }
+    })
+    .catch(error => next(error))
 })
 
-app.delete('/api/persons/:id', (req, res) => {
-  const id = req.params.id
-  persons = persons.filter(p => p.id !== id)
-  res.status(204).end()
+// Exercise 3.15: Delete person from MongoDB
+app.delete('/api/persons/:id', (req, res, next) => {
+  Person.findByIdAndDelete(req.params.id)
+    .then(() => {
+      res.status(204).end()
+    })
+    .catch(error => next(error))
 })
 
-app.post('/api/persons', (req, res) => {
+// Exercise 3.14: Add new person to MongoDB
+app.post('/api/persons', (req, res, next) => {
   const body = req.body
 
   if (!body.name || !body.number) {
-    return res.status(400).json({ 
-      error: 'name or number is missing' 
-    })
+    return res.status(400).json({ error: 'name or number is missing' })
   }
 
-  const nameExists = persons.some(
-    p => p.name.toLowerCase() === body.name.trim().toLowerCase()
-  )
-
-  if (nameExists) {
-    return res.status(400).json({ 
-      error: 'name must be unique' 
-    })
-  }
-
-  const newId = String(Math.floor(Math.random() * 1000000000))
-
-  const person = {
-    id: newId,
+  const person = new Person({
     name: body.name,
-    number: body.number
-  }
+    number: body.number,
+  })
 
-  persons = persons.concat(person)
-  res.json(person)
+  person.save()
+    .then(savedPerson => {
+      res.json(savedPerson)
+    })
+    .catch(error => next(error))
 })
 
+// Exercise 3.17: Update person number with PUT
+app.put('/api/persons/:id', (req, res, next) => {
+  const { name, number } = req.body
+
+  Person.findById(req.params.id)
+    .then(person => {
+      if (!person) {
+        return res.status(404).end()
+      }
+
+      person.name = name
+      person.number = number
+
+      return person.save().then(updatedPerson => {
+        res.json(updatedPerson)
+      })
+    })
+    .catch(error => next(error))
+})
+
+// Fallback for non-existent routes
 const unknownEndpoint = (req, res) => {
   res.status(404).send({ error: 'unknown endpoint' })
 }
 app.use(unknownEndpoint)
+
+// Exercise 3.16: Centralized error handling middleware
+const errorHandler = (error, req, res, next) => {
+  console.error(error.message)
+
+  if (error.name === 'CastError') {
+    return res.status(400).send({ error: 'malformatted id' })
+  }
+
+  next(error)
+}
+app.use(errorHandler)
 
 const PORT = process.env.PORT || 3001
 app.listen(PORT, () => {
