@@ -1,16 +1,17 @@
 const express = require('express')
 const morgan = require('morgan')
+const cors = require('cors')
 
 const app = express()
 
+app.use(cors())
+app.use(express.static('dist'))
 app.use(express.json())
 
-// Custom morgan token for HTTP POST body payload (Exercise 3.8)
 morgan.token('body', (req) => {
   return req.method === 'POST' ? JSON.stringify(req.body) : ''
 })
 
-// Configure morgan logging (Exercise 3.7 & 3.8)
 app.use(
   morgan(':method :url :status :res[content-length] - :response-time ms :body')
 )
@@ -38,12 +39,10 @@ let persons = [
   }
 ]
 
-// Exercise 3.1: Get all persons
 app.get('/api/persons', (req, res) => {
   res.json(persons)
 })
 
-// Exercise 3.2: Info page
 app.get('/info', (req, res) => {
   const count = persons.length
   const currentTime = new Date()
@@ -53,7 +52,6 @@ app.get('/info', (req, res) => {
   `)
 })
 
-// Exercise 3.3: Get single person
 app.get('/api/persons/:id', (req, res) => {
   const id = req.params.id
   const person = persons.find(p => p.id === id)
@@ -65,14 +63,12 @@ app.get('/api/persons/:id', (req, res) => {
   }
 })
 
-// Exercise 3.4: Delete person
 app.delete('/api/persons/:id', (req, res) => {
   const id = req.params.id
   persons = persons.filter(p => p.id !== id)
   res.status(204).end()
 })
 
-// Exercise 3.5 & 3.6: Add person with random id and validation
 app.post('/api/persons', (req, res) => {
   const body = req.body
 
@@ -104,13 +100,12 @@ app.post('/api/persons', (req, res) => {
   res.json(person)
 })
 
-// Unknown endpoint fallback
 const unknownEndpoint = (req, res) => {
   res.status(404).send({ error: 'unknown endpoint' })
 }
 app.use(unknownEndpoint)
 
-const PORT = 3001
+const PORT = process.env.PORT || 3001
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`)
 })
