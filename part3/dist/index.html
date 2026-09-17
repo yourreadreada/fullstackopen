@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Phonebook</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      max-width: 600px;
+      margin: 40px auto;
+      padding: 0 20px;
+      color: #333;
+    }
+    h2 { margin-top: 24px; }
+    input {
+      padding: 8px;
+      margin: 4px 0 12px 0;
+      width: 100%;
+      box-sizing: border-box;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+    button {
+      background-color: #0070f3;
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    button:hover { background-color: #005bb5; }
+    .delete-btn {
+      background-color: #e00;
+      padding: 4px 8px;
+      font-size: 12px;
+      margin-left: 8px;
+    }
+    .delete-btn:hover { background-color: #b00; }
+    .notification {
+      padding: 10px;
+      margin-bottom: 15px;
+      border-radius: 4px;
+      border: 1px solid green;
+      background: #e6f4ea;
+      color: green;
+    }
+    .error {
+      border-color: red;
+      background: #fce8e6;
+      color: red;
+    }
+    ul { list-style: none; padding-left: 0; }
+    li {
+      padding: 8px 0;
+      border-bottom: 1px solid #eee;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+  </style>
+</head>
+<body>
+  <h2>Phonebook</h2>
+  <div id="notification" style="display: none;" class="notification"></div>
+
+  <div>
+    filter shown with: <input id="filter" placeholder="search names..." />
+  </div>
+
+  <h3>Add a new</h3>
+  <form id="person-form">
+    <div>name: <input id="name" required placeholder="at least 3 characters" /></div>
+    <div>number: <input id="number" required placeholder="040-1234556" /></div>
+    <div><button type="submit">add</button></div>
+  </form>
+
+  <h3>Numbers</h3>
+  <ul id="persons-list">Loading...</ul>
+
+  <script>
+    let persons = []
+
+    const showNotification = (msg, isError = false) => {
+      const box = document.getElementById('notification')
+      box.textContent = msg
+      box.className = isError ? 'notification error' : 'notification'
+      box.style.display = 'block'
+      setTimeout(() => { box.style.display = 'none' }, 4000)
+    }
+
+    const render = () => {
+      const filterVal = document.getElementById('filter').value.toLowerCase()
+      const list = document.getElementById('persons-list')
+      list.innerHTML = ''
+
+      const filtered = persons.filter(p => p.name.toLowerCase().includes(filterVal))
+      if (filtered.length === 0) {
+        list.innerHTML = '<li>No numbers found</li>'
+        return
+      }
+
+      filtered.forEach(p => {
+        const li = document.createElement('li')
+        li.innerHTML = `<span>${p.name} ${p.number}</span>`
+        const btn = document.createElement('button')
+        btn.textContent = 'delete'
+        btn.className = 'delete-btn'
+        btn.onclick = () => deletePerson(p.id, p.name)
+        li.appendChild(btn)
+        list.appendChild(li)
+      })
+    }
+
+    const loadPersons = async () => {
+      try {
+        const res = await fetch('/api/persons')
+        persons = await res.json()
+        render()
+      } catch (err) {
+        showNotification('Failed to load contacts', true)
+      }
+    }
+
+    const deletePerson = async (id, name) => {
+      if (!confirm(`Delete ${name}?`)) return
+      try {
+        const res = await fetch(`/api/persons/${id}`, { method: 'DELETE' })
+        if (res.ok || res.status === 204) {
+          persons = persons.filter(p => p.id !== id)
+          showNotification(`Deleted ${name}`)
+          render()
+        } else {
+          throw new Error()
+        }
+      } catch {
+        showNotification(`Information of ${name} has already been removed from server`, true)
+        loadPersons()
+      }
+    }
+
+    document.getElementById('person-form').onsubmit = async (e) => {
+      e.preventDefault()
+      const nameInput = document.getElementById('name')
+      const numberInput = document.getElementById('number')
+      const name = nameInput.value.trim()
+      const number = numberInput.value.trim()
+
+      const existing = persons.find(p => p.name.toLowerCase() === name.toLowerCase())
+
+      if (existing) {
+        if (confirm(`${name} is already added to phonebook, replace the old number with a new one?`)) {
+          try {
+            const res = await fetch(`/api/persons/${existing.id}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ name, number })
+            })
+            const data = await res.json()
+            if (!res.ok) throw new Error(data.error || 'Failed to update')
+            persons = persons.map(p => p.id !== existing.id ? p : data)
+            nameInput.value = ''
+            numberInput.value = ''
+            showNotification(`Updated ${name}`)
+            render()
+          } catch (err) {
+            showNotification(err.message, true)
+          }
+        }
+        return
+      }
+
+      try {
+        const res = await fetch('/api/persons', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, number })
+        })
+        const data = await res.json()
+        if (!res.ok) throw new Error(data.error || 'Failed to add')
+        persons = persons.concat(data)
+        nameInput.value = ''
+        numberInput.value = ''
+        showNotification(`Added ${name}`)
+        render()
+      } catch (err) {
+        showNotification(err.message, true)
+      }
+    }
+
+    document.getElementById('filter').oninput = render
+    loadPersons()
+  </script>
+</body>
+</html>
